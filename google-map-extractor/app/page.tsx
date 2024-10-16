@@ -7,8 +7,8 @@ interface Place {
   name: string;
   vicinity: string;
   rating?: number;
-  photo?: string;
-  phone?: string; // Store the phone number
+  photo?: string | null; // Allow null or undefined
+  phone?: string | null;
 }
 
 const MapComponent: React.FC = () => {
@@ -47,13 +47,16 @@ const MapComponent: React.FC = () => {
         fields: ['formatted_phone_number'], // Requesting the phone number field
       };
 
-      service.getDetails(request, (placeDetails, status) => {
-        if (status === mapsApi.places.PlacesServiceStatus.OK && placeDetails?.formatted_phone_number) {
-          resolve(placeDetails.formatted_phone_number);
-        } else {
-          resolve(null);
+      service.getDetails(
+        request,
+        (placeDetails, status) => {
+          if (status === 'OK' && placeDetails?.formatted_phone_number) {
+            resolve(placeDetails.formatted_phone_number);
+          } else {
+            resolve(null);
+          }
         }
-      });
+      );
     });
   };
 
@@ -70,31 +73,34 @@ const MapComponent: React.FC = () => {
       keyword: keyword,
     };
 
-    service.nearbySearch(request, async (results, status) => {
-      setIsLoading(false);
-      if (status === mapsApi.places.PlacesServiceStatus.OK && results) {
-        const newPlaces: Place[] = await Promise.all(
-          results.map(async result => {
-            const phone = await getPlaceDetails(result.place_id); // Fetch phone number
-            return {
-              name: result.name,
-              vicinity: result.vicinity ?? 'N/A',
-              rating: result.rating,
-              photo: result.photos && result.photos.length > 0
-                ? result.photos[0].getUrl({ maxWidth: 200, maxHeight: 200 })
-                : null,
-              phone, // Add phone number to the place
-            };
-          })
-        );
-        setPlaces(newPlaces);
-        if (newPlaces.length === 0) {
+    service.nearbySearch(
+      request,
+      async (results, status) => {
+        setIsLoading(false);
+        if (status === 'OK' && results) {
+          const newPlaces: Place[] = await Promise.all(
+            results.map(async (result) => {
+              const phone = await getPlaceDetails(result.place_id); // Fetch phone number
+              return {
+                name: result.name,
+                vicinity: result.vicinity ?? 'N/A',
+                rating: result.rating,
+                photo: result.photos && result.photos.length > 0
+                  ? result.photos[0].getUrl({ maxWidth: 200, maxHeight: 200 })
+                  : null,
+                phone, // Add phone number to the place
+              };
+            })
+          );
+          setPlaces(newPlaces);
+          if (newPlaces.length === 0) {
+            setNoResults(true);
+          }
+        } else {
           setNoResults(true);
         }
-      } else {
-        setNoResults(true);
       }
-    });
+    );
   };
 
   // Export places data to CSV
@@ -165,17 +171,12 @@ const MapComponent: React.FC = () => {
         {!isLoading && places.length > 0 && (
           <ul className="space-y-4">
             {places.map((place, index) => (
-              <li key={index} className="p-4 bg-gray-100 rounded-lg shadow flex space-x-4">
-                {/* Place photo if available */}
-                {place.photo && (
-                  <img src={place.photo} alt={place.name} className="w-20 h-20 object-cover rounded" />
-                )}
-                <div>
-                  <h3 className="text-lg font-bold">{place.name}</h3>
-                  <p className="text-sm text-gray-600">{place.vicinity}</p>
-                  <p className="text-sm text-gray-600">Rating: {place.rating || 'N/A'}</p>
-                  <p className="text-sm text-gray-600">Phone: {place.phone || 'N/A'}</p>
-                </div>
+              <li key={index} className="border p-4 rounded shadow">
+                <p className="font-bold text-lg">{place.name}</p>
+                <p>{place.vicinity}</p>
+                <p>Rating: {place.rating || 'N/A'}</p>
+                <p>Phone: {place.phone || 'N/A'}</p>
+                {place.photo && <img src={place.photo} alt={place.name} className="mt-2 w-full h-48 object-cover" />}
               </li>
             ))}
           </ul>
@@ -185,15 +186,4 @@ const MapComponent: React.FC = () => {
   );
 };
 
-const Home: React.FC = () => {
-  return (
-    <div className="h-full w-full overflow-hidden">
-      <h1 className="text-5xl font-extrabold text-gray-800 text-center py-4">
-        Google Maps Extractor
-      </h1>
-      <MapComponent />
-    </div>
-  );
-};
-
-export default Home;
+export default MapComponent;
